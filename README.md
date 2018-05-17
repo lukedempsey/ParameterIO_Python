@@ -15,7 +15,7 @@ Fusion API Add-In that adds a button to the UI that allows you to select a CSV (
 * Updated to support Fusion 360 version 2.0.1514
 
 ### 1.0.0
-* he first release version of the AddIn
+* The first release version of the AddIn
 
 ## Usage:
 First see [How to install sample Add-Ins and Scripts](https://rawgit.com/AutodeskFusion360/AutodeskFusion360.github.io/master/Installation.html)
@@ -25,5 +25,5 @@ Samples are licensed under the terms of the [MIT License](http://opensource.org/
 
 ## Written by
 
-Written by Wayne Brill <br /> (Autodesk Developer Network)
+Written by Wayne Brill (Autodesk Developer Network) </br>
 Modified by Luke Dempsey
