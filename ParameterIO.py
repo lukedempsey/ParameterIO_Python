@@ -10,8 +10,8 @@ handlers = []
 
 class ParameterIOCommand(object):
     def __init__(self):
-        self.exportOnlyUserParams = False
-        self.importParams = True        #otherwise export
+        self.exportOnlyUserParams = False               # export only user parameters
+        self.importParams = True                        # otherwise export
         self.commandId = 'ParamsFromCSV'
         self.workspaceToUse = 'FusionSolidEnvironment'
         self.panelToUse = 'SolidModifyPanel'
@@ -24,40 +24,6 @@ class ParameterIOCommand(object):
         self.exportOnlyUserParams = True
         self.importParams = True
 
-    def commandDefinitionById(self, id):
-        if not id:
-            self.ui.messageBox('commandDefinition id is not specified')
-            return None
-        commandDefinitions_ = self.ui.commandDefinitions
-        commandDefinition_ = commandDefinitions_.itemById(id)
-        return commandDefinition_
-
-    def commandControlByIdForQAT(self, id):
-        app = adsk.core.Application.get()
-        ui = app.userInterface
-        if not id:
-            ui.messageBox('commandControl id is not specified')
-            return None
-        toolbars_ = ui.toolbars
-        toolbarQAT_ = toolbars_.itemById('QAT')
-        toolbarControls_ = toolbarQAT_.controls
-        toolbarControl_ = toolbarControls_.itemById(id)
-        return toolbarControl_
-
-    def commandControlByIdForPanel(self, id):
-        app = adsk.core.Application.get()
-        ui = app.userInterface
-        if not id:
-            ui.messageBox('commandControl id is not specified')
-            return None
-        workspaces_ = ui.workspaces
-        modelingWorkspace_ = workspaces_.itemById(self.workspaceToUse)
-        toolbarPanels_ = modelingWorkspace_.toolbarPanels
-        toolbarPanel_ = toolbarPanels_.itemById(self.panelToUse)
-        toolbarControls_ = toolbarPanel_.controls
-        toolbarControl_ = toolbarControls_.itemById(id)
-        return toolbarControl_
-
     def addButton(self):
         # clean up any crashed instances of the button if existing
         try:
@@ -69,30 +35,46 @@ class ParameterIOCommand(object):
 
         # add add-in to UI
         buttonParameterIO = self.ui.commandDefinitions.addButtonDefinition(
-            self.commandId, 'ParameterIO (Beta)', 'Import/Exports Parameters', 'resources/command')
+            self.commandId, 'ParameterIO', 'Import/Exports Parameters', 'resources/command')
 
         buttonParameterIO.commandCreated.add(self.handlers.make_handler(adsk.core.CommandCreatedEventHandler,
                                                                     self.onCreate))
 
+        # create button in modify panel
         createPanel = self.ui.allToolbarPanels.itemById('SolidModifyPanel')
         buttonControl = createPanel.controls.addCommand(buttonParameterIO, 'parameterIOBtn')
 
-        # Make the button available in the panel.
+        # Make the button available in the panel (top ribbon)
         buttonControl.isPromotedByDefault = True
         buttonControl.isPromoted = True
+        
+        # Create button in QAT panel (top toolbar)
+        qatPanel = self.ui.toolbars.itemById('QAT')
+        qatPanel.controls.addCommand(buttonParameterIO, 'parameterIOBtn')
+
+
 
     def removeButton(self):
+        # Remove Command Definition
         cmdDef = self.ui.commandDefinitions.itemById(self.commandId)
         if cmdDef:
             cmdDef.deleteMe()
+
+        # Remove from modify panel
         createPanel = self.ui.allToolbarPanels.itemById('SolidModifyPanel')
         cntrl = createPanel.controls.itemById(self.commandId)
         if cntrl:
             cntrl.deleteMe()
 
+        # Remove from QAT panel
+        qatPanel = self.ui.toolbars.itemById('QAT')
+        qat_button = qatPanel.controls.itemById(self.commandId)
+        if qat_button:
+            qat_button.deleteMe()
+
     def onCreate(self, args):
         inputs = args.command.commandInputs
-        self.resetToDefault()
+        self.resetToDefault()   #populate with default values
         args.command.setDialogInitialSize(425, 475)
         args.command.setDialogMinimumSize(425, 475)
 
@@ -105,17 +87,15 @@ class ParameterIOCommand(object):
                                        True, "", self.exportOnlyUserParams)
         userparams.isEnabled = not(self.importParams)
         
+        # userparams only enabled if exporting, create a handler
         inputChanged = self.inputChangedEvent()
         args.command.inputChanged.add(inputChanged)
         handlers.append(inputChanged)
 
         # Add handlers to this command.
         args.command.execute.add(self.handlers.make_handler(adsk.core.CommandEventHandler, self.onExecute))
-        #args.command.validateInputs.add(
-        #    self.handlers.make_handler(adsk.core.ValidateInputsEventHandler, self.onValidate))
-        #args.command.inputChanged.add(
-        #    self.handlers.make_handler(adsk.core.InputChangedEventHandler, self.onInputChanged))
 
+    #handler for enabling userparams when export is enabled
     class inputChangedEvent(adsk.core.InputChangedEventHandler):
         def __init__(self):
             super().__init__()
@@ -149,21 +129,6 @@ class ParameterIOCommand(object):
         inputs = {inp.id: inp for inp in inputs}
         self.exportOnlyUserParams = inputs['exportOnlyUserParams'].value
         self.importParams = inputs['importParams'].value
-
-    class CommandCreatedEventHandlerQAT(adsk.core.CommandCreatedEventHandler):
-        def __init__(self):
-            super().__init__()
-        def notify(self, args):
-            try:
-                command = args.command
-                onExecute = self.CommandExecuteHandler()
-                command.execute.add(onExecute)
-                # keep the handler referenced beyond this function
-                handlers.append(onExecute)
-
-            except:
-                self.ui.messageBox('QAT command created failed:\n{}'.format(traceback.format_exc()))
-
 
     def destroyObject(self, uiObj, tobeDeleteObj):
         if uiObj and tobeDeleteObj:
@@ -209,29 +174,6 @@ class ParameterIOCommand(object):
         except:
             if self.ui:
                self.ui.messageBox('AddIn Start Failed:\n{}'.format(traceback.format_exc()))
-
-    def stop(self):
-        try:
-            objArray = []
-
-            commandControlQAT_ = self.commandControlByIdForQAT(self.commandId)
-            if commandControlQAT_:
-                objArray.append(commandControlQAT_)
-
-            commandControlPanel_ = self.commandControlByIdForPanel(self.commandId)
-            if commandControlPanel_:
-                objArray.append(commandControlPanel_)
-                
-            commandDefinition_ = self.commandDefinitionById(self.commandId)
-            if commandDefinition_:
-                objArray.append(commandDefinition_)
-
-            for obj in objArray:
-                self.destroyObject(self.ui, obj)
-
-        except:
-            if self.ui:
-                self.ui.messageBox('AddIn Stop Failed:\n{}'.format(traceback.format_exc()))
 
     def updateParamsFromCSV(self):
          
